@@ -13,6 +13,7 @@ destination = '.'
 def processArgs():
     '''
     Process the command line arguments to the script
+    Currently a dummy function, present for future extensibility
     '''
     global sourceType
     global source
@@ -23,6 +24,8 @@ def processArgs():
 def getFileNames():
     '''
     Determine the source of file names and retrieve the names
+    Read the file names from the .txt file
+    Open to future extension
     '''
     global sourceType
     global source
@@ -71,11 +74,12 @@ def writeMetadata(metadata):
 
     # Open the file and write the metadata
     metadataFile = open(base+augment+'.json', 'w')
-    json.dump(metadata, metadataFile)
+    json.dump(metadata, metadataFile, indent=2)
 
 def trimUnderscores(name):
     ''' 
     Removes underscores from the beginning and end of name
+    Utility function used by the getAndRemove___ functions
     '''
     # Chop off the leading underscored
     for i, letter in enumerate(name):
@@ -96,6 +100,7 @@ def getAndRemoveProcess(name):
     Find the process information for tif files. Currently assumes a
     specific set of valid processes, and assumes that the process info
     will be found at the beginning of the file name
+    ***SENSITIVE TO OUT-OF-ORDER METADATA COMPONENTS***
     '''
     processTypes = ['v_reg', 'reg', 'mask_nuclei', 'v_nuclei']
 
@@ -217,10 +222,7 @@ def processFilenames(names):
 
         # Get the Study
         leftover, study = getAndRemoveStudy(leftover)
-        #print('Study: {}'.format(study))
-
-        print('Leftover: {}'.format(leftover))
-        #print('\n')
+        #print('Study: {}\n'.format(study))
 
         fileMetadata.append({'image_id': imageID,
                              'filename': file,
@@ -231,7 +233,7 @@ def processFilenames(names):
                              'image_type': extension,
                              'study': study, 
                              'process': process})
-        print(fileMetadata[-1])
+        #print(fileMetadata[-1])
 
     return fileMetadata
         
