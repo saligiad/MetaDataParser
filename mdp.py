@@ -4,11 +4,12 @@ import sys
 import json
 
 ###
-# Global variables
+# Global variables - Mostly for future extension
 ###
 sourceType = ''
 source = ''
-destination = '.'
+destinationType = ''
+destination = ''
 
 def processArgs():
     '''
@@ -17,9 +18,13 @@ def processArgs():
     '''
     global sourceType
     global source
+    global destinationType
+    global destination
 
     sourceType = 'file'
     source = 'Python_Task_Files.txt'
+    destinationType = 'file'
+    destination = '.'
 
 def getFileNames():
     '''
@@ -34,7 +39,7 @@ def getFileNames():
         sourceFile = open(source)
         files = []
         for line in sourceFile:
-            match = re.search(r'[_0-9a-zA-Z]+.[a-zA-Z]+', line)
+            match = re.search(r'[_0-9a-zA-Z]+.[0-9a-zA-Z]+', line)
             files.append(match.group().lower())
         return files
 
@@ -46,10 +51,11 @@ def writeMetadata(metadata):
     '''
     global destination
 
+    # Set the base file name and regex pattern
     base = 'image_file_metadata'
     augment = ''
     pattern = base + r'(\([0-9]+\))?\.json'
-
+    # Variales for use in filename increment determination
     matches = []
     makeNext = 0
 
@@ -60,7 +66,7 @@ def writeMetadata(metadata):
             matches.append(match.group())
 
     # If there are existing metadata files, get the increment
-    #   value for the new one
+    # value for the new one
     if len(matches) > 0:
         makeNext = 1
     for filename in matches:
@@ -102,6 +108,7 @@ def getAndRemoveProcess(name):
     will be found at the beginning of the file name
     ***SENSITIVE TO OUT-OF-ORDER METADATA COMPONENTS***
     '''
+    # Hard coded process names
     processTypes = ['v_reg', 'reg', 'mask_nuclei', 'v_nuclei']
 
     # Check for each possible process type (currently simplified for task)
@@ -124,7 +131,9 @@ def getAndRemoveROI(name):
     file name.
     ***SENSITIVE TO OUT-OF-ORDER METADATA COMPONENTS***
     '''
+    # Search for component fitting pattern 'roi##' at end of name
     match = re.search(r'roi[0-9]+$', name)
+    # If match found, remove the region the region and return it with the new name
     if match:
         roi = match.group()
         nameWithoutROI = trimUnderscores(name[:match.start()])
@@ -140,7 +149,9 @@ def getAndRemoveMarker(name):
     after getAndRemoveROI and before getAndRemoveCycleRound.
     ***SENSITIVE TO OUT-OF-ORDER METADATA COMPONENTS***
     '''
+    # Search for component at end of file name preceeded by an underscore
     match = re.search(r'(?<=_)[0-9a-z]+$', name)
+    # If found, remove the match and return it with the new name
     if match:
         marker = match.group()
         nameWithoutMarker = trimUnderscores(name[:match.start()])
@@ -156,11 +167,11 @@ def getAndRemoveCycleRound(name):
     getAndRemoveROI and getAndRemoveMarker.
     ***SENSITIVE TO OUT-OF-ORDER METADATA COMPONENTS***
     '''
+    # Search for pattern 'c##r##' at the end of name
     match = re.search(r'c[0-9]+r[0-9]+$', name)
+    # If found, remove it, separate cycle and round, and return them with the new name
     if match:
-        # Remove the cycle and round from the name
         nameWithoutCycleRound = trimUnderscores(name[:match.start()])
-        # Extract the cycle and round info from the regex match and return
         parts = match.group().split('r')
         return nameWithoutCycleRound, parts[0][1:], parts[1]
 
@@ -174,8 +185,10 @@ def getAndRemoveStudy(name):
     for importand metadata, and discards the rest. 
     *** SENSITIVE TO UNORDERED METADATA***
     '''
-    # 
+    # Search for a string of letters followed by an optional underscore
+    # followed by a string of numbers at the end of the name
     match = re.search(r'[a-z]+_?[0-9]+$', name)
+    # If found, remove the study, ensure the underscore, and return it with the new name
     if match:
         nameWithoutStudy = trimUnderscores(name[:match.start()])
         study = match.group()
@@ -191,39 +204,31 @@ def getAndRemoveStudy(name):
 def processFilenames(names):
     fileMetadata = []
 
-    # Iterate through the filenames and
+    # Iterate through the filenames and create metadata object for each
     for imageID, file in enumerate(names):
+
         # Separate the file name and file extension
         parts = file.split('.')
         extension = re.search(r'[a-z0-9]+', parts[1]).group()
         name = parts[0]
         leftover = name
-        #print(name)
-        #print('Image type: {}'.format(extension))
        
         # If the file is a tif, get the process
         if extension == 'tif':
             leftover, process = getAndRemoveProcess(leftover)
         else:
             process = 'NA'
-        #print('Process: {}'.format(process))
 
         # Get the ROI
         leftover, roi = getAndRemoveROI(leftover)
-        #print('ROI: {}'.format(roi))
-        
         # Get the marker
         leftover, marker = getAndRemoveMarker(leftover)
-        #print('Marker: {}'.format(marker))
-
         # Get the cycle and round numbers
         leftover, cycle, round = getAndRemoveCycleRound(leftover)
-        #print('Cycle: {} - Round: {}'.format(cycle, round))
-
         # Get the Study
         leftover, study = getAndRemoveStudy(leftover)
-        #print('Study: {}\n'.format(study))
 
+        # Create a dict containing the metadata and append to the array
         fileMetadata.append({'image_id': imageID,
                              'filename': file,
                              'cycle': cycle, 
@@ -239,9 +244,22 @@ def processFilenames(names):
         
 
 if __name__ == '__main__':
+    # Determine the script mode, get the names, and process metadata
     processArgs()
     filenames = getFileNames()
     metadata = processFilenames(filenames)
+
+    # Answer questions from task
+    differentStudies = set([md['study'] for md in metadata])
+    if 'NA' in differentStudies:
+        differentStudies.remove('NA')
+    print('There are {} studies'.format(len(differentStudies)))
+    differentRegions = set([md['region'] for md in metadata])
+    if 'NA' in differentRegions:
+        differentRegions.remove('NA')
+    print('There are {} regions'.format(len(differentRegions)))
+
+    # Write the metadata json file
     writeMetadata(metadata)
     
 
